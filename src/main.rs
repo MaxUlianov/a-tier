@@ -1,75 +1,115 @@
 use console::Style;
+use std::collections::HashMap;
+use std::io;
 use term_size::dimensions;
 
 // use style like this:
 // print!("{}", style("=").cyan());
 
+#[derive(Default)]
+struct TierList {
+    data: HashMap<String, Vec<String>>,
+}
+
+impl TierList {
+    fn new() -> Self {
+        TierList {
+            data: HashMap::new(),
+        }
+    }
+
+    fn insert_item(&mut self, tier: &str, item: String) {
+        self.data
+            .entry(tier.to_string())
+            .or_insert_with(Vec::new)
+            .push(item);
+    }
+
+    fn get_all_tiers(&self) -> Vec<&String> {
+        self.data.keys().collect()
+    }
+
+    fn get_tier(&self, tier: &str) -> Option<(String, &Vec<String>)> {
+        match self.data.get(tier) {
+            Some(items) => Some((tier.to_string(), items)),
+            None => None,
+        }
+    }
+}
+
 fn main() {
     let def_length = 10;
     let def_lines = 5;
-    // let term_width = get_terminal_width();
-    let term_width = 100;
+    let term_width = get_terminal_width();
 
     let height = def_lines + 2;
     let width = def_length + 4;
 
     print_horizontal_line(term_width);
 
+    let mut tier_list = TierList::new();
+
+    loop {
+        // mock data print (will be replaced by actual tier list
+        // from the previous stage)
+        // (first print current tiers, then prompt)
+        println!("Data so far:");
+        for tier in tier_list.get_all_tiers() {
+            if let Some((tier_name, items)) = tier_list.get_tier(tier) {
+                println!("{}: {:?}", tier_name, items);
+            }
+        }
+
+        println!("Enter tier and item separated by ; ('q' to exit):");
+        let mut input = String::new();
+
+        std::io::stdin()
+            .read_line(&mut input)
+            .expect("Failed to read line");
+        let input_split: Vec<&str> = input.trim().split(";").collect();
+
+        if input.trim() == "q" {
+            break;
+        }
+        if input_split.len() == 2 {
+            tier_list.insert_item(input_split[0], input_split[1].to_string());
+        }
+    }
+
     // here should be read of file config
     // check_args_file() // or something like that
 
-    // get cli config
+    // // get cli config
     // let (l, h) = receive_config();
     // let length = l.unwrap_or(def_length);
     // let lines = h.unwrap_or(def_lines);
     // println!("l = {:?}, h = {:?}", length, lines);
-    let length = def_length;
-    let lines = def_lines;
-
-    // // simulate interactive session like this
-    // let (tier, item) = receive_new_item();
-    // println!("tier {}, item {}", tier, item);
+    // let length = def_length;
+    // let lines = def_lines;
 
     // let cut_res = cut_string(&item, &length, &lines);
     // println!("result vec = {:?}", cut_res);
 
-    // //  some setup for dynamic interaction
-    // let tiers = ["S", "A", "B", "C", "D", "E"];
-
-    // let mut items: Vec<Vec<String>> = Vec::new();
-
-    // items.push(cut_res);
-    // println!("{:?}", items);
-    // items.push([["S"], ["item"], ["item"], ["item"]]);
-
-    // // block print debug
-    let tiers: [[&[&str]; 6]; 6] = [
-        [&["S"], &["item"], &["item"], &["item"], &[], &[]],
-        [&["A"], &["item"], &["item"], &["item"], &["item"], &[]],
-        [
-            &["B"],
-            &["item"],
-            &["item"],
-            &["item"],
-            &["item"],
-            &["item"],
-        ],
-        [&["C"], &[], &[], &[], &[], &[]],
-        [&["D"], &[], &[], &[], &[], &[]],
-        [&["IDK"], &["item"], &["item"], &["item"], &[], &[]],
-    ];
-
-    for tier_index in 0..tiers.len() {
-        print_blocks(&height, &width, &(tier_index as i32), tiers[tier_index]);
-        print_horizontal_line(term_width);
-    }
+    // // sort of real code
+    // for tier_index in 0..tiers.len() {
+    //     print_blocks(&height, &width, &(tier_index as i32), tiers[tier_index]);
+    //     print_horizontal_line(term_width);
+    // }
 }
 
-fn receive_new_item() -> (String, String) {
-    let tier = std::env::args().nth(1).expect("Pass Tier and Item title");
-    let item = std::env::args().nth(2).expect("Pass Item title");
-    (tier.clone(), item.clone())
-}
+// fn receive_tier_item() -> Option<(String, String)> {
+//     println!("Enter tier and item separated by '; ':");
+//     let mut input = String::new();
+//     std::io::stdin()
+//         .read_line(&mut input)
+//         .expect("Failed to read line");
+//     let input_split: Vec<&str> = input.trim().split("; ").collect();
+//     if input_split.len() == 2 {
+//         Some((input_split[0].to_string(), input_split[1].to_string()))
+//     } else {
+//         None
+//     }
+// }
 
 // fn receive_config() -> (Option<i32>, Option<i32>){
 //     // receive init args to set custom item line length
