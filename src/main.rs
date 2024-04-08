@@ -18,11 +18,22 @@ impl TierList {
         }
     }
 
+    fn init_with_tiers(tiers: &Vec<&str>) -> Self {
+        let mut tier_list = TierList::default();
+        for tier in tiers {
+            tier_list.data.insert(tier.to_string(), Vec::new());
+        }
+        tier_list
+    }
+
     fn insert_item(&mut self, tier: &str, item: String) {
-        self.data
-            .entry(tier.to_string())
-            .or_insert_with(Vec::new)
-            .push(item);
+        if let Some(tier_data) = self.data.get_mut(tier) {
+            tier_data.push(item);
+        }
+        // self.data
+        //     .entry(tier.to_string())
+        //     .or_insert_with(Vec::new)
+        //     .push(item);
     }
 
     fn get_all_tiers(&self) -> Vec<&String> {
@@ -47,14 +58,16 @@ fn main() {
 
     print_horizontal_line(term_width);
 
-    let mut tier_list = TierList::new();
+    let tiers = vec!["S", "A", "B", "C", "D"];
+    let mut tier_list = TierList::init_with_tiers(&tiers);
 
     loop {
         // mock data print (will be replaced by actual tier list
         // from the previous stage)
         // (first print current tiers, then prompt)
         println!("Data so far:");
-        for tier in tier_list.get_all_tiers() {
+        // HashMap doesnt keep order, so we'll have to keep it ourselves
+        for tier in &tiers {
             if let Some((tier_name, items)) = tier_list.get_tier(tier) {
                 println!("{}: {:?}", tier_name, items);
             }
@@ -208,6 +221,9 @@ fn print_tier_color(tier: &i32) {
     print!("{}", colored_item);
 }
 
+// definitely need to split this func into one to only print 1 row
+// and call the new func in the loop in main
+// (should have done that in the beginning tbh)
 fn print_blocks(height: &i32, width: &i32, tier: &i32, items: [&[&str]; 6]) {
     // print top row, which is arbitrary space
     print!("||");
