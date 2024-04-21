@@ -46,6 +46,17 @@ impl TierList {
             None => None,
         }
     }
+
+    fn get_tier_as_array(&self, tier: &str) -> Option<Vec<String>> {
+        match self.data.get(tier) {
+            Some(values) => {
+                let mut tier_items_array = vec![tier.to_string()];
+                tier_items_array.extend_from_slice(values);
+                Some(tier_items_array)
+            }
+            None => None,
+        }
+    }
 }
 
 fn main() {
@@ -56,30 +67,39 @@ fn main() {
     let height = def_lines + 2;
     let width = def_length + 4;
 
-    print_horizontal_line(term_width);
-
     let tiers = vec!["S", "A", "B", "C", "D"];
+    let tiers_len = tiers.len();
     let mut tier_list = TierList::init_with_tiers(&tiers);
 
     loop {
-        // mock data print (will be replaced by actual tier list
-        // from the previous stage)
         // (first print current tiers, then prompt)
-        println!("Data so far:");
+        print_horizontal_line(term_width);
+
         // HashMap doesnt keep order, so we'll have to keep it ourselves
-        for tier in &tiers {
-            if let Some((tier_name, items)) = tier_list.get_tier(tier) {
-                println!("{}: {:?}", tier_name, items);
+        // for tier in &tiers {
+        for tier_index in 0..tiers_len {
+            if let Some(items) = tier_list.get_tier_as_array(&tiers[tier_index]) {
+                // println!("{}: {:?}", tier_name, items);
+                print_tier(
+                    &height,
+                    &width,
+                    &(tier_index as i32),
+                    &items,
+                    &def_length,
+                    &def_lines,
+                );
+
+                print_horizontal_line(term_width);
             }
         }
 
-        println!("Enter tier and item separated by ; ('q' to exit):");
+        println!("\nEnter tier and item separated by = ('q' to exit):");
         let mut input = String::new();
 
         std::io::stdin()
             .read_line(&mut input)
             .expect("Failed to read line");
-        let input_split: Vec<&str> = input.trim().split(";").collect();
+        let input_split: Vec<&str> = input.trim().split("=").collect();
 
         if input.trim() == "q" {
             break;
@@ -105,7 +125,7 @@ fn main() {
 
     // // sort of real code
     // for tier_index in 0..tiers.len() {
-    //     print_blocks(&height, &width, &(tier_index as i32), tiers[tier_index]);
+    //     print_tier(&height, &width, &(tier_index as i32), tiers[tier_index]);
     //     print_horizontal_line(term_width);
     // }
 }
@@ -168,10 +188,10 @@ fn print_horizontal_line(term_w: i32) {
 fn cut_string(input_string: &str, max_length: &i32, lines: &i32) -> Vec<String> {
     // here we put the algo to cut item title for printing
 
-    println!(
-        "input= {} len = {} lines = {}",
-        input_string, max_length, lines
-    );
+    // println!(
+    //     "input= {} len = {} lines = {}",
+    //     input_string, max_length, lines
+    // );
 
     let words: Vec<&str> = input_string.split_whitespace().collect();
 
@@ -209,22 +229,27 @@ fn cut_string(input_string: &str, max_length: &i32, lines: &i32) -> Vec<String> 
 }
 
 fn print_tier_color(tier: &i32) {
-    let colored_item = match tier {
-        0 => Style::new().color256(196).apply_to("@"),
-        1 => Style::new().color256(202).apply_to("@"),
-        2 => Style::new().color256(220).apply_to("@"),
-        3 => Style::new().color256(226).apply_to("@"),
-        4 => Style::new().color256(118).apply_to("@"),
-        5 => Style::new().color256(247).apply_to("@"),
-        _ => Style::new().apply_to("@"),
-    };
+    let colors = [196, 202, 214, 226, 118, 122, 087, 033, 099, 247];
+
+    // let colored_item = match tier {
+    //     0 => Style::new().color256(196).apply_to("@"),
+    //     1 => Style::new().color256(202).apply_to("@"),
+    //     2 => Style::new().color256(220).apply_to("@"),
+    //     3 => Style::new().color256(226).apply_to("@"),
+    //     4 => Style::new().color256(118).apply_to("@"),
+    //     5 => Style::new().color256(247).apply_to("@"),
+    //     _ => Style::new().apply_to("@"),
+    // };
+    let colored_item = Style::new()
+        .color256(colors[*tier as usize] as u8)
+        .apply_to("@");
     print!("{}", colored_item);
 }
 
 // definitely need to split this func into one to only print 1 row
 // and call the new func in the loop in main
 // (should have done that in the beginning tbh)
-fn print_blocks(height: &i32, width: &i32, tier: &i32, items: [&[&str]; 6]) {
+fn print_tier(height: &i32, width: &i32, tier: &i32, items: &[String], length: &i32, lines: &i32) {
     // print top row, which is arbitrary space
     print!("||");
     for _ in 0..*width {
@@ -240,12 +265,6 @@ fn print_blocks(height: &i32, width: &i32, tier: &i32, items: [&[&str]; 6]) {
             print!("|");
         }
     }
-    // for _ in 0..items.len() -1 {
-    //     for _ in 0..*width {
-    //         print!(" ");
-    //     }
-    //     print!("|");
-    // }
     // end print top row
 
     println!();
@@ -255,13 +274,13 @@ fn print_blocks(height: &i32, width: &i32, tier: &i32, items: [&[&str]; 6]) {
 
         // print tier (first item in items)
         print_tier_color(tier);
-        // print!("{}", style("@").red());
+        let tier_strings = cut_string(&items[0], length, lines);
 
         let lines_above = (*height - items[0].len() as i32) / 2;
         let lines_until_below = lines_above + items[0].len() as i32;
 
         if line - lines_above >= 0 && line < lines_until_below {
-            let current_str = items[0][(line - lines_above) as usize];
+            let current_str = &tier_strings[(line - lines_above) as usize];
 
             let spaces_left = (*width - 2 - current_str.chars().count() as i32) / 2;
             let spaces_right = *width - (spaces_left + current_str.chars().count() as i32) - 2;
@@ -286,14 +305,16 @@ fn print_blocks(height: &i32, width: &i32, tier: &i32, items: [&[&str]; 6]) {
 
         // print items
         for index in 1..items.len() {
-            if items[index].len() == 0 {
-                break;
-            }
-            let lines_above = (*height - items[index].len() as i32) / 2;
-            let lines_until_below = lines_above + items[index].len() as i32;
+            let item_strings = cut_string(&items[index], length, lines);
+
+            // if items[index].len() == 0 {
+            //     break;
+            // }
+            let lines_above = (*height - item_strings.len() as i32) / 2;
+            let lines_until_below = lines_above + item_strings.len() as i32;
 
             if line - lines_above >= 0 && line < lines_until_below {
-                let current_str = items[index][(line - lines_above) as usize];
+                let current_str = &item_strings[(line - lines_above) as usize];
 
                 let spaces_left = (*width - current_str.chars().count() as i32) / 2;
                 let spaces_right = *width - (spaces_left + current_str.chars().count() as i32);
@@ -333,12 +354,6 @@ fn print_blocks(height: &i32, width: &i32, tier: &i32, items: [&[&str]; 6]) {
             print!("|");
         }
     }
-    // for _ in 0..items.len() -1 {
-    //     for _ in 0..*width {
-    //         print!(" ");
-    //     }
-    //     print!("|");
-    // }
     // end print bottom row
     println!();
 }
