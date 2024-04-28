@@ -1,24 +1,23 @@
 use console::Style;
 use std::collections::HashMap;
-use std::io;
 use term_size::dimensions;
-
-// use style like this:
-// print!("{}", style("=").cyan());
 
 #[derive(Default)]
 struct TierList {
     data: HashMap<String, Vec<String>>,
 }
 
-impl TierList {
-    fn new() -> Self {
-        TierList {
-            data: HashMap::new(),
-        }
-    }
+const DEFAULT_TIERS: &[&str] = &["S", "A", "B", "C", "D"];
+const TIER_COLORS: &[u8] = &[196, 208, 214, 226, 118, 122, 087, 033, 099, 247];
 
-    fn init_with_tiers(tiers: &Vec<&str>) -> Self {
+impl TierList {
+    // fn new() -> Self {
+    //     TierList {
+    //         data: HashMap::new(),
+    //     }
+    // }
+
+    fn init_with_tiers(tiers: &Vec<String>) -> Self {
         let mut tier_list = TierList::default();
         for tier in tiers {
             tier_list.data.insert(tier.to_string(), Vec::new());
@@ -36,16 +35,16 @@ impl TierList {
         //     .push(item);
     }
 
-    fn get_all_tiers(&self) -> Vec<&String> {
-        self.data.keys().collect()
-    }
+    // fn get_all_tiers(&self) -> Vec<&String> {
+    //     self.data.keys().collect()
+    // }
 
-    fn get_tier(&self, tier: &str) -> Option<(String, &Vec<String>)> {
-        match self.data.get(tier) {
-            Some(items) => Some((tier.to_string(), items)),
-            None => None,
-        }
-    }
+    // fn get_tier(&self, tier: &str) -> Option<(String, &Vec<String>)> {
+    //     match self.data.get(tier) {
+    //         Some(items) => Some((tier.to_string(), items)),
+    //         None => None,
+    //     }
+    // }
 
     fn get_tier_as_array(&self, tier: &str) -> Option<Vec<String>> {
         match self.data.get(tier) {
@@ -60,14 +59,33 @@ impl TierList {
 }
 
 fn main() {
-    let def_length = 10;
+    // max length of one text line
+    // and max lines per tier block
+    let def_length = 9;
     let def_lines = 5;
+
     let term_width = get_terminal_width();
 
-    let height = def_lines + 2;
-    let width = def_length + 4;
+    // borders around text:
+    // +2 for width so the tiers aren't too thin
+    // +0 for height because with 5 lines and
+    // arbitrary space above/below it is enough
+    let width = def_length + 2;
+    let height = def_lines;
 
-    let tiers = vec!["S", "A", "B", "C", "D"];
+    println!("Enter tiers, split by ; (empty to use S,A,B,C,D)");
+    let mut tiers_str = String::new();
+    std::io::stdin()
+        .read_line(&mut tiers_str)
+        .expect("Failed to read tiers");
+    tiers_str = tiers_str.trim().to_string();
+
+    let tiers = if tiers_str.is_empty() {
+        DEFAULT_TIERS.iter().map(|s| s.to_string()).collect()
+    } else {
+        parse_tiers(&tiers_str)
+    };
+
     let tiers_len = tiers.len();
     let mut tier_list = TierList::init_with_tiers(&tiers);
 
@@ -76,10 +94,8 @@ fn main() {
         print_horizontal_line(term_width);
 
         // HashMap doesnt keep order, so we'll have to keep it ourselves
-        // for tier in &tiers {
         for tier_index in 0..tiers_len {
             if let Some(items) = tier_list.get_tier_as_array(&tiers[tier_index]) {
-                // println!("{}: {:?}", tier_name, items);
                 print_tier(
                     &height,
                     &width,
@@ -98,7 +114,7 @@ fn main() {
 
         std::io::stdin()
             .read_line(&mut input)
-            .expect("Failed to read line");
+            .expect("Failed to read item");
         let input_split: Vec<&str> = input.trim().split("=").collect();
 
         if input.trim() == "q" {
@@ -119,30 +135,7 @@ fn main() {
     // println!("l = {:?}, h = {:?}", length, lines);
     // let length = def_length;
     // let lines = def_lines;
-
-    // let cut_res = cut_string(&item, &length, &lines);
-    // println!("result vec = {:?}", cut_res);
-
-    // // sort of real code
-    // for tier_index in 0..tiers.len() {
-    //     print_tier(&height, &width, &(tier_index as i32), tiers[tier_index]);
-    //     print_horizontal_line(term_width);
-    // }
 }
-
-// fn receive_tier_item() -> Option<(String, String)> {
-//     println!("Enter tier and item separated by '; ':");
-//     let mut input = String::new();
-//     std::io::stdin()
-//         .read_line(&mut input)
-//         .expect("Failed to read line");
-//     let input_split: Vec<&str> = input.trim().split("; ").collect();
-//     if input_split.len() == 2 {
-//         Some((input_split[0].to_string(), input_split[1].to_string()))
-//     } else {
-//         None
-//     }
-// }
 
 // fn receive_config() -> (Option<i32>, Option<i32>){
 //     // receive init args to set custom item line length
@@ -183,6 +176,10 @@ fn print_horizontal_line(term_w: i32) {
         print!("=");
     }
     println!();
+}
+
+fn parse_tiers(tiers_str: &str) -> Vec<String> {
+    tiers_str.split(";").map(|s| s.to_string()).collect()
 }
 
 fn cut_string(input_string: &str, max_length: &i32, lines: &i32) -> Vec<String> {
@@ -229,27 +226,23 @@ fn cut_string(input_string: &str, max_length: &i32, lines: &i32) -> Vec<String> 
 }
 
 fn print_tier_color(tier: &i32) {
-    let colors = [196, 202, 214, 226, 118, 122, 087, 033, 099, 247];
+    // if tier index > len, reuse last element (gray color)
+    let tier_index = if *tier >= TIER_COLORS.len() as i32 {
+        TIER_COLORS.len() - 1
+    } else {
+        *tier as usize
+    };
 
-    // let colored_item = match tier {
-    //     0 => Style::new().color256(196).apply_to("@"),
-    //     1 => Style::new().color256(202).apply_to("@"),
-    //     2 => Style::new().color256(220).apply_to("@"),
-    //     3 => Style::new().color256(226).apply_to("@"),
-    //     4 => Style::new().color256(118).apply_to("@"),
-    //     5 => Style::new().color256(247).apply_to("@"),
-    //     _ => Style::new().apply_to("@"),
-    // };
     let colored_item = Style::new()
-        .color256(colors[*tier as usize] as u8)
+        .color256(TIER_COLORS[tier_index] as u8)
         .apply_to("@");
     print!("{}", colored_item);
 }
 
-// definitely need to split this func into one to only print 1 row
-// and call the new func in the loop in main
-// (should have done that in the beginning tbh)
 fn print_tier(height: &i32, width: &i32, tier: &i32, items: &[String], length: &i32, lines: &i32) {
+    // prints single tier without top horizontal line
+    // accepts an array (tier name + items)
+
     // print top row, which is arbitrary space
     print!("||");
     for _ in 0..*width {
@@ -272,12 +265,12 @@ fn print_tier(height: &i32, width: &i32, tier: &i32, items: &[String], length: &
     for line in 0..*height {
         print!("||");
 
-        // print tier (first item in items)
+        // print tier name (first item in items)
         print_tier_color(tier);
         let tier_strings = cut_string(&items[0], length, lines);
 
-        let lines_above = (*height - items[0].len() as i32) / 2;
-        let lines_until_below = lines_above + items[0].len() as i32;
+        let lines_above = (*height - tier_strings.len() as i32) / 2;
+        let lines_until_below = lines_above + tier_strings.len() as i32;
 
         if line - lines_above >= 0 && line < lines_until_below {
             let current_str = &tier_strings[(line - lines_above) as usize];
@@ -298,7 +291,7 @@ fn print_tier(height: &i32, width: &i32, tier: &i32, items: &[String], length: &
                 print!(" ");
             }
         }
-        // end print tier line
+        // end print tier name
 
         print_tier_color(tier);
         print!("||");
@@ -307,9 +300,6 @@ fn print_tier(height: &i32, width: &i32, tier: &i32, items: &[String], length: &
         for index in 1..items.len() {
             let item_strings = cut_string(&items[index], length, lines);
 
-            // if items[index].len() == 0 {
-            //     break;
-            // }
             let lines_above = (*height - item_strings.len() as i32) / 2;
             let lines_until_below = lines_above + item_strings.len() as i32;
 
