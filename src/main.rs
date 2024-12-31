@@ -1,14 +1,18 @@
 use console::Style;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::env;
+use std::fs::File;
+use std::io::BufReader;
 use term_size::dimensions;
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 struct TierList {
     data: HashMap<String, Vec<String>>,
 }
 
 const DEFAULT_TIERS: &[&str] = &["S", "A", "B", "C", "D"];
-const TIER_COLORS: &[u8] = &[196, 208, 214, 226, 118, 122, 087, 033, 099, 247];
+const TIER_COLORS: &[u8] = &[196, 208, 214, 226, 118, 247, 122, 087, 033, 099, 247];
 
 impl TierList {
     // fn new() -> Self {
@@ -56,6 +60,13 @@ impl TierList {
             None => None,
         }
     }
+
+    fn from_json_file(file_path: &str) -> Result<Self, Box<dyn std::error::Error>> {
+        let file = File::open(file_path)?;
+        let reader = BufReader::new(file);
+        let tier_list: TierList = serde_json::from_reader(reader)?;
+        Ok(tier_list)
+    }
 }
 
 fn main() {
@@ -73,27 +84,40 @@ fn main() {
     let width = def_length + 2;
     let height = def_lines;
 
-    println!("Enter tiers, split by ; (empty to use S,A,B,C,D)");
-    let mut tiers_str = String::new();
-    std::io::stdin()
-        .read_line(&mut tiers_str)
-        .expect("Failed to read tiers");
-    tiers_str = tiers_str.trim().to_string();
+    let args: Vec<String> = env::args().collect();
+    if args.len() >= 3 && args[1] == "--json" {
+        // JSON file read
 
-    let tiers = if tiers_str.is_empty() {
-        DEFAULT_TIERS.iter().map(|s| s.to_string()).collect()
-    } else {
-        parse_tiers(&tiers_str)
-    };
+        let file_path = &args[2];
+        let tier_list = TierList::from_json_file(file_path).unwrap();
+        let tiers_len = tier_list.data.len();
 
-    let tiers_len = tiers.len();
-    let mut tier_list = TierList::init_with_tiers(&tiers);
+        let mut tiers: Vec<String> = tier_list.data.keys().cloned().collect();
+        tiers.sort_by(|a, b| {
+            let a_value = match a.chars().next().unwrap_or('Z') {
+                'S' => 0,
+                'A' => 1,
+                'B' => 2,
+                'C' => 3,
+                'D' => 4,
+                c if c.is_ascii_uppercase() => c as u8 - b'E' + 5,
+                _ => 31, // for any other tier
+            };
+            let b_value = match b.chars().next().unwrap_or('Z') {
+                'S' => 0,
+                'A' => 1,
+                'B' => 2,
+                'C' => 3,
+                'D' => 4,
+                c if c.is_ascii_uppercase() => c as u8 - b'E' + 5,
+                _ => 31, // for any other tier
+            };
+            a_value.cmp(&b_value)
+        });
 
-    loop {
-        // (first print current tiers, then prompt)
+        // duplicate of tier list print (single iteration for JSON input)
         print_horizontal_line(term_width);
 
-        // HashMap doesnt keep order, so we'll have to keep it ourselves
         for tier_index in 0..tiers_len {
             if let Some(items) = tier_list.get_tier_as_array(&tiers[tier_index]) {
                 print_tier(
@@ -108,33 +132,61 @@ fn main() {
                 print_horizontal_line(term_width);
             }
         }
+    } else {
+        // CLI interactive input and print
 
-        println!("\nEnter tier and item separated by = ('q' to exit):");
-        let mut input = String::new();
-
+        println!("Enter tiers, split by ; (empty to use S,A,B,C,D)");
+        let mut tiers_str = String::new();
         std::io::stdin()
-            .read_line(&mut input)
-            .expect("Failed to read item");
-        let input_split: Vec<&str> = input.trim().split("=").collect();
+            .read_line(&mut tiers_str)
+            .expect("Failed to read tiers");
+        tiers_str = tiers_str.trim().to_string();
 
-        if input.trim() == "q" {
-            break;
+        let tiers = if tiers_str.is_empty() {
+            DEFAULT_TIERS.iter().map(|s| s.to_string()).collect()
+        } else {
+            parse_tiers(&tiers_str)
+        };
+
+        let tiers_len = tiers.len();
+        let mut tier_list = TierList::init_with_tiers(&tiers);
+
+        loop {
+            // (first print current tiers, then prompt)
+            print_horizontal_line(term_width);
+
+            // HashMap doesnt keep order, so we'll have to keep it ourselves
+            for tier_index in 0..tiers_len {
+                if let Some(items) = tier_list.get_tier_as_array(&tiers[tier_index]) {
+                    print_tier(
+                        &height,
+                        &width,
+                        &(tier_index as i32),
+                        &items,
+                        &def_length,
+                        &def_lines,
+                    );
+
+                    print_horizontal_line(term_width);
+                }
+            }
+
+            println!("\nEnter tier and item separated by = ('q' to exit):");
+            let mut input = String::new();
+
+            std::io::stdin()
+                .read_line(&mut input)
+                .expect("Failed to read item");
+            let input_split: Vec<&str> = input.trim().split("=").collect();
+
+            if input.trim() == "q" {
+                break;
+            }
+            if input_split.len() == 2 {
+                tier_list.insert_item(input_split[0], input_split[1].to_string());
+            }
         }
-        if input_split.len() == 2 {
-            tier_list.insert_item(input_split[0], input_split[1].to_string());
-        }
-    }
-
-    // here should be read of file config
-    // check_args_file() // or something like that
-
-    // // get cli config
-    // let (l, h) = receive_config();
-    // let length = l.unwrap_or(def_length);
-    // let lines = h.unwrap_or(def_lines);
-    // println!("l = {:?}, h = {:?}", length, lines);
-    // let length = def_length;
-    // let lines = def_lines;
+    };
 }
 
 // fn receive_config() -> (Option<i32>, Option<i32>){
