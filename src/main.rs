@@ -67,6 +67,12 @@ impl TierList {
         let tier_list: TierList = serde_json::from_reader(reader)?;
         Ok(tier_list)
     }
+
+    fn to_json_file(&self, file_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let file = File::create(file_path)?;
+        serde_json::to_writer(file, &self)?;
+        Ok(())
+    }
 }
 
 fn main() {
@@ -177,11 +183,32 @@ fn main() {
             std::io::stdin()
                 .read_line(&mut input)
                 .expect("Failed to read item");
-            let input_split: Vec<&str> = input.trim().split("=").collect();
 
+            // quit option by passing
+            // q
             if input.trim() == "q" {
                 break;
             }
+
+            // write current tier list to JSON file by passing
+            // --to-json /path/to/some_file.json
+            if input.starts_with("--to-json") {
+                let json_file_path = &input[9..].trim();
+                match tier_list.to_json_file(json_file_path) {
+                    Ok(_) => {
+                        println!("\x1b[32mExport to {} successful\x1b[0m\n", json_file_path);
+                    }
+                    Err(e) => {
+                        println!("\x1b[31mExport failed: {}\x1b[0m\n", e);
+                    }
+                }
+                continue;
+            }
+
+            // split input like
+            // tier=item
+            let input_split: Vec<&str> = input.trim().split("=").collect();
+
             if input_split.len() == 2 {
                 tier_list.insert_item(input_split[0], input_split[1].to_string());
             }
