@@ -177,7 +177,7 @@ fn main() {
                 }
             }
 
-            println!("\nEnter tier and item separated by = ('q' to exit):");
+            println!("\nEnter tier and item separated by = ('q' to exit, '--to-json file.json' to export):");
             let mut input = String::new();
 
             std::io::stdin()
